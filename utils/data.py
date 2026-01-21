@@ -1,4 +1,3 @@
-
 import ccxt
 import pandas as pd
 import yfinance as yf
@@ -7,23 +6,31 @@ import streamlit as st
 @st.cache_data(ttl=60)
 def fetch_crypto_data(symbol='BTC/USDT', timeframe='1h', limit=1000):
     """
-    Fetch OHLCV data from Bybit via CCXT.
-    Default limit increased to 1000 to support decent history.
+    Fetch OHLCV data from KRAKEN (US Friendly) via CCXT.
+    Modified to work on Streamlit Cloud (US Servers).
     """
     try:
-        exchange = ccxt.bybit()
+        # USARE KRAKEN INVECE DI BYBIT (Bybit blocca gli USA)
+        exchange = ccxt.kraken()
         
-        # Map timeframes to Bybit standard
+        # Kraken a volte usa XBT invece di BTC, ma ccxt gestisce la mappatura.
+        # Se BTC/USDT dà problemi, il bot userà automaticamente BTC/USD
+        if symbol == 'BTC/USDT':
+            # Kraken ha liquidità maggiore su USD. 
+            # Per il bot l'analisi tecnica è identica tra USDT e USD.
+            symbol = 'BTC/USD' 
+
+        # Map timeframes to Kraken standard (minutes)
         tf_map = {
-            '15m': '15',
-            '1h': '60',
-            '4h': '240',
-            '1d': 'D',
-            '1D': 'D'
+            '15m': 15,
+            '1h': 60,
+            '4h': 240,
+            '1d': 1440,
+            '1D': 1440
         }
-        bybit_tf = tf_map.get(timeframe, timeframe)
+        kraken_tf = tf_map.get(timeframe, 60) # Default 60 se non trova
         
-        ohlcv = exchange.fetch_ohlcv(symbol, bybit_tf, limit=limit)
+        ohlcv = exchange.fetch_ohlcv(symbol, timeframe=kraken_tf, limit=limit)
         df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
         df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
         return df
